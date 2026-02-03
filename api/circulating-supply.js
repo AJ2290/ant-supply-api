@@ -89,44 +89,37 @@ async function calculateCirculatingSupply() {
   }
 
   const circulatingSupply = TOTAL_SUPPLY - totalExcluded;
-
-  const data = {
-    circulating_supply: formatSupply(circulatingSupply),
-    decimals: DECIMALS,
-  };
+  const formattedSupply = formatSupply(circulatingSupply);
 
   // Update cache
   cache = {
-    data: data,
+    data: formattedSupply,
     timestamp: now,
   };
 
-  return data;
+  return formattedSupply;
 }
 
 export default async function handler(req, res) {
   // Set CORS headers
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Content-Type", "text/plain");
 
   if (req.method === "OPTIONS") {
     return res.status(200).end();
   }
 
   if (req.method !== "GET") {
-    return res.status(405).json({ error: "Method not allowed" });
+    return res.status(405).send("Method not allowed");
   }
 
   try {
-    const data = await calculateCirculatingSupply();
+    const circulatingSupply = await calculateCirculatingSupply();
     res.setHeader("Cache-Control", "public, max-age=60");
-    return res.status(200).json(data);
+    return res.status(200).send(circulatingSupply);
   } catch (error) {
     console.error("Error calculating circulating supply:", error);
-    return res.status(500).json({
-      error: "Failed to calculate circulating supply",
-      details: error.message,
-    });
+    return res.status(500).send("Error calculating circulating supply");
   }
 }
