@@ -1,0 +1,12 @@
+{
+  "name": "ant-supply-api",
+  "version": "1.0.0",
+  "description": "ANT Token Supply API for CoinMarketCap and CoinGecko",
+  "private": true,
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "dev": "vercel dev"
+  }
+}
