@@ -11,12 +11,14 @@ Public API for Autonomi Network Token (ANT) supply data, designed for CoinMarket
 | `GET /api/circulating-supply` | Returns circulating supply (total minus excluded wallets) |
 | `GET /api/supply` | Returns detailed breakdown with all wallet balances |
 
-## Response Examples
+## Response Format
+
+All endpoints return live data from the Arbitrum blockchain. Values shown below are format examples only.
 
 ### `/api/total-supply`
 ```json
 {
-  "total_supply": "1200000000",
+  "total_supply": "<total_supply_value>",
   "decimals": 18
 }
 ```
@@ -24,7 +26,7 @@ Public API for Autonomi Network Token (ANT) supply data, designed for CoinMarket
 ### `/api/circulating-supply`
 ```json
 {
-  "circulating_supply": "136644835",
+  "circulating_supply": "<calculated_circulating_supply>",
   "decimals": 18
 }
 ```
@@ -32,19 +34,19 @@ Public API for Autonomi Network Token (ANT) supply data, designed for CoinMarket
 ### `/api/supply`
 ```json
 {
-  "total_supply": "1200000000",
-  "circulating_supply": "136644835",
-  "total_excluded": "1063355165",
+  "total_supply": "<total_supply_value>",
+  "circulating_supply": "<calculated_circulating_supply>",
+  "total_excluded": "<sum_of_excluded_wallets>",
   "excluded_wallets": [
     {
       "name": "Network Emissions",
       "address": "0xdA4f3aF146f86850DE8e0D6FaE6EEe051Ad0AA44",
       "purpose": "Network rewards and emissions for node operators",
-      "balance": "800000000",
-      "balance_with_decimals": "800000000.000000000000000000"
+      "balance": "<live_balance>",
+      "balance_with_decimals": "<live_balance_with_decimals>"
     }
   ],
-  "timestamp": "2026-02-03T16:50:00.000Z",
+  "timestamp": "<iso_timestamp>",
   "decimals": 18,
   "token": {
     "name": "Autonomi Network Token",
