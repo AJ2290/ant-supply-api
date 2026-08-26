@@ -1,0 +1,12 @@
+name = "ant-supply-api"
+main = "worker/index.js"
+compatibility_date = "2026-08-26"
+
+# Staging URL: https://ant-supply-api.<account>.workers.dev
+workers_dev = true
+
+# Production domain — uncomment and redeploy ONLY at cutover time.
+# This claims api.autonomi.com and replaces the Vercel CNAME.
+# [[routes]]
+# pattern = "api.autonomi.com"
+# custom_domain = true
