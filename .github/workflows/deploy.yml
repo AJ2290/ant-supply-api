@@ -1,0 +1,29 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy Worker
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+
+      - name: Smoke test
+        run: |
+          sleep 5
+          BASE="https://ant-supply-api.autonomi.workers.dev"
+          total=$(curl -sf --max-time 20 "$BASE/api/total-supply")
+          [ "$total" = "1200000000" ] || { echo "total-supply wrong: $total"; exit 1; }
+          circ=$(curl -sf --max-time 30 "$BASE/api/circulating-supply")
+          echo "$circ" | grep -qE '^[0-9]+$' || { echo "circulating-supply not a bare integer: $circ"; exit 1; }
+          curl -sf --max-time 20 "$BASE/api/supply" | grep -q '"circulating_supply"' || { echo "supply JSON missing fields"; exit 1; }
+          echo "OK: circulating=$circ"

@@ -173,6 +173,57 @@ function jsonResponse(body, status, extraHeaders = {}) {
   });
 }
 
+// Machine-readable index of everything this host serves, required for
+// api.autonomi.com as a machine-facing host
+async function handleIndex(request) {
+  const origin = new URL(request.url).origin;
+  return jsonResponse(
+    {
+      service: "ANT Supply API",
+      description:
+        "Public supply data for the Autonomi Network Token (ANT) on Arbitrum One",
+      source: "https://github.com/WithAutonomi/ant-supply-api",
+      endpoints: [
+        {
+          path: "/api/health",
+          method: "GET",
+          content_type: "application/json",
+          description: "Health check",
+        },
+        {
+          path: "/api/total-supply",
+          method: "GET",
+          content_type: "text/plain",
+          description:
+            "Total ANT supply as a bare integer string (CoinMarketCap/CoinGecko format)",
+        },
+        {
+          path: "/api/circulating-supply",
+          method: "GET",
+          content_type: "text/plain",
+          description:
+            "Circulating ANT supply as a bare integer string: total supply minus excluded-wallet balances, read live from Arbitrum (CoinMarketCap/CoinGecko format)",
+        },
+        {
+          path: "/api/supply",
+          method: "GET",
+          content_type: "application/json",
+          description:
+            "Detailed supply breakdown including each excluded wallet's live balance",
+        },
+      ],
+      _links: Object.fromEntries(
+        ["health", "total-supply", "circulating-supply", "supply"].map((p) => [
+          p,
+          `${origin}/api/${p}`,
+        ])
+      ),
+    },
+    200,
+    { "Cache-Control": "public, max-age=3600" }
+  );
+}
+
 async function handleHealth() {
   return jsonResponse(
     {
@@ -243,7 +294,8 @@ export default {
     const path = url.pathname.replace(/\/+$/, "") || "/";
 
     switch (path) {
-      case "/": // vercel.json routed / to the health check
+      case "/": // service index (the Vercel version routed / to health)
+        return handleIndex(request);
       case "/api/health":
         return handleHealth();
       case "/api/total-supply":

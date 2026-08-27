@@ -1,0 +1,23 @@
+// Cloudflare Worker configuration — this file is the source of truth.
+// The dashboard is read-only by convention: anything changed there is
+// invisible to git and overwritten by the next deploy.
+{
+  "name": "ant-supply-api",
+  "main": "worker/index.js",
+  // Autonomi account (owns the autonomi.com zone)
+  "account_id": "be82e7c0b8539ee42440087b8f2c58f5",
+  "compatibility_date": "2026-08-26",
+
+  // Staging URL: https://ant-supply-api.autonomi.workers.dev
+  "workers_dev": true,
+
+  "observability": {
+    "enabled": true
+  }
+
+  // Production domain — enabled at cutover via a reviewed commit, never
+  // from the dashboard. Claims api.autonomi.com away from the Vercel CNAME.
+  // "routes": [
+  //   { "pattern": "api.autonomi.com", "custom_domain": true }
+  // ]
+}
