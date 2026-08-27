@@ -16,6 +16,8 @@ jobs:
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          # v4 is required to read wrangler.jsonc; the action's default is older
+          wranglerVersion: "4.127.0"
 
       - name: Smoke test
         run: |
