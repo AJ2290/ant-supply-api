@@ -44,6 +44,38 @@ const CACHE_DURATION = 60 * 1000; // 1 minute
 let circulatingCache = { data: null, timestamp: 0 };
 let detailedCache = { data: null, timestamp: 0 };
 
+// Stale fallback: if the Arbitrum RPC fails, serve the last good figure
+// rather than a 500 — CMC/CoinGecko prefer slightly stale over error.
+// Two layers: module memory (lost on isolate restart) and the Cache API
+// (survives restarts; a no-op on workers.dev, effective on the custom
+// domain). Stale responses carry an X-Stale: true header.
+let lastGoodCirculating = null;
+let lastGoodDetailed = null;
+const STALE_CACHE_BASE = "https://stale-supply.internal/";
+const STALE_TTL_SECONDS = 7 * 24 * 3600;
+
+async function putStale(key, body) {
+  try {
+    await caches.default.put(
+      new Request(STALE_CACHE_BASE + key),
+      new Response(body, {
+        headers: { "Cache-Control": `max-age=${STALE_TTL_SECONDS}` },
+      })
+    );
+  } catch (e) {
+    // Cache API unavailable (e.g. workers.dev) — memory layer still applies
+  }
+}
+
+async function getStale(key) {
+  try {
+    const hit = await caches.default.match(new Request(STALE_CACHE_BASE + key));
+    return hit ? await hit.text() : null;
+  } catch (e) {
+    return null;
+  }
+}
+
 // Query wallet balance using eth_call
 async function getBalance(walletAddress) {
   // ERC20 balanceOf(address) function signature
@@ -87,66 +119,93 @@ function formatWithDecimals(value) {
   return `${intPart}.${decPart}`;
 }
 
+// Returns { value, stale }; throws only if there is no fallback anywhere
 async function calculateCirculatingSupply() {
   const now = Date.now();
   if (circulatingCache.data && now - circulatingCache.timestamp < CACHE_DURATION) {
-    return circulatingCache.data;
+    return { value: circulatingCache.data, stale: false };
   }
 
-  let totalExcluded = BigInt(0);
-  for (const wallet of EXCLUDED_WALLETS) {
-    const balance = await getBalance(wallet.address);
-    totalExcluded += balance;
+  try {
+    let totalExcluded = BigInt(0);
+    for (const wallet of EXCLUDED_WALLETS) {
+      const balance = await getBalance(wallet.address);
+      totalExcluded += balance;
+    }
+
+    const formattedSupply = formatSupply(TOTAL_SUPPLY - totalExcluded);
+    circulatingCache = { data: formattedSupply, timestamp: now };
+    lastGoodCirculating = formattedSupply;
+    await putStale("circulating", formattedSupply);
+    return { value: formattedSupply, stale: false };
+  } catch (error) {
+    const fallback = lastGoodCirculating ?? (await getStale("circulating"));
+    if (fallback !== null) {
+      console.error("RPC failed, serving stale circulating supply:", error);
+      return { value: fallback, stale: true };
+    }
+    throw error;
   }
-
-  const circulatingSupply = TOTAL_SUPPLY - totalExcluded;
-  const formattedSupply = formatSupply(circulatingSupply);
-
-  circulatingCache = { data: formattedSupply, timestamp: now };
-  return formattedSupply;
 }
 
+// Returns { value, stale }; throws only if there is no fallback anywhere.
+// A stale value keeps its original timestamp, honestly showing data age.
 async function getDetailedSupply() {
   const now = Date.now();
   if (detailedCache.data && now - detailedCache.timestamp < CACHE_DURATION) {
-    return detailedCache.data;
+    return { value: detailedCache.data, stale: false };
   }
 
-  let totalExcluded = BigInt(0);
-  const walletDetails = [];
+  try {
+    let totalExcluded = BigInt(0);
+    const walletDetails = [];
 
-  for (const wallet of EXCLUDED_WALLETS) {
-    const balance = await getBalance(wallet.address);
-    totalExcluded += balance;
+    for (const wallet of EXCLUDED_WALLETS) {
+      const balance = await getBalance(wallet.address);
+      totalExcluded += balance;
 
-    walletDetails.push({
-      name: wallet.name,
-      address: wallet.address,
-      purpose: wallet.purpose,
-      balance: formatSupply(balance),
-      balance_with_decimals: formatWithDecimals(balance),
-    });
+      walletDetails.push({
+        name: wallet.name,
+        address: wallet.address,
+        purpose: wallet.purpose,
+        balance: formatSupply(balance),
+        balance_with_decimals: formatWithDecimals(balance),
+      });
+    }
+
+    const circulatingSupply = TOTAL_SUPPLY - totalExcluded;
+
+    const data = {
+      total_supply: formatSupply(TOTAL_SUPPLY),
+      circulating_supply: formatSupply(circulatingSupply),
+      total_excluded: formatSupply(totalExcluded),
+      excluded_wallets: walletDetails,
+      timestamp: new Date().toISOString(),
+      decimals: DECIMALS,
+      token: {
+        name: "Autonomi Network Token",
+        symbol: "ANT",
+        contract: ANT_CONTRACT,
+        blockchain: "Arbitrum One",
+      },
+    };
+
+    detailedCache = { data: data, timestamp: now };
+    lastGoodDetailed = data;
+    await putStale("supply", JSON.stringify(data));
+    return { value: data, stale: false };
+  } catch (error) {
+    let fallback = lastGoodDetailed;
+    if (fallback === null) {
+      const cached = await getStale("supply");
+      if (cached !== null) fallback = JSON.parse(cached);
+    }
+    if (fallback !== null) {
+      console.error("RPC failed, serving stale supply breakdown:", error);
+      return { value: fallback, stale: true };
+    }
+    throw error;
   }
-
-  const circulatingSupply = TOTAL_SUPPLY - totalExcluded;
-
-  const data = {
-    total_supply: formatSupply(TOTAL_SUPPLY),
-    circulating_supply: formatSupply(circulatingSupply),
-    total_excluded: formatSupply(totalExcluded),
-    excluded_wallets: walletDetails,
-    timestamp: new Date().toISOString(),
-    decimals: DECIMALS,
-    token: {
-      name: "Autonomi Network Token",
-      symbol: "ANT",
-      contract: ANT_CONTRACT,
-      blockchain: "Arbitrum One",
-    },
-  };
-
-  detailedCache = { data: data, timestamp: now };
-  return data;
 }
 
 const TEXT_CORS_HEADERS = {
@@ -182,6 +241,7 @@ async function handleIndex(request) {
       service: "ANT Supply API",
       description:
         "Public supply data for the Autonomi Network Token (ANT) on Arbitrum One",
+      // GitHub redirects this to the repo's current name after any rename
       source: "https://github.com/WithAutonomi/ant-supply-api",
       endpoints: [
         {
@@ -254,8 +314,11 @@ async function handleCirculatingSupply(request) {
   }
 
   try {
-    const circulatingSupply = await calculateCirculatingSupply();
-    return textResponse(circulatingSupply, 200, { "Cache-Control": "public, max-age=60" });
+    const { value, stale } = await calculateCirculatingSupply();
+    return textResponse(value, 200, {
+      "Cache-Control": "public, max-age=60",
+      ...(stale ? { "X-Stale": "true" } : {}),
+    });
   } catch (error) {
     console.error("Error calculating circulating supply:", error);
     return textResponse("Error calculating circulating supply", 500);
@@ -276,8 +339,12 @@ async function handleSupply(request) {
   }
 
   try {
-    const data = await getDetailedSupply();
-    return jsonResponse(data, 200, { ...corsHeaders, "Cache-Control": "public, max-age=60" });
+    const { value, stale } = await getDetailedSupply();
+    return jsonResponse(value, 200, {
+      ...corsHeaders,
+      "Cache-Control": "public, max-age=60",
+      ...(stale ? { "X-Stale": "true" } : {}),
+    });
   } catch (error) {
     console.error("Error fetching supply details:", error);
     return jsonResponse(

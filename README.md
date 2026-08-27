@@ -2,7 +2,9 @@
 
 Public supply data for the Autonomi Network Token (ANT), served at **https://api.autonomi.com**. CoinMarketCap and CoinGecko poll the two plain-text endpoints below; anything may read the JSON ones.
 
-Runs as a Cloudflare Worker (`worker/index.js`) in the Autonomi Cloudflare account. **This repository is the source of truth** — see [How this is deployed](#how-this-is-deployed).
+Runs as a Cloudflare Worker named `api` (`worker/index.js`) in the Autonomi Cloudflare account. **This repository is the source of truth** — see [How this is deployed](#how-this-is-deployed).
+
+**Stale-over-error:** if the Arbitrum RPC is unavailable, the supply endpoints serve the last good figure (from in-memory or Cache API fallback) with an `X-Stale: true` header instead of a 500 — a slightly stale number beats an error for CMC/CoinGecko. A 500 only occurs if no figure has ever been computed.
 
 ## Endpoint contract
 
@@ -48,7 +50,7 @@ Changing this list is a change to the published circulating supply figure — tr
 
 - **Config as code.** Worker code, routes, and settings live in this repo (`wrangler.jsonc`). The Cloudflare dashboard is for looking, not editing — dashboard changes are invisible to git and overwritten by the next deploy.
 - **Deploys run from GitHub Actions** (`.github/workflows/deploy.yml`) on every merge to `main`, using a scoped Cloudflare API token stored as the repo secret `CLOUDFLARE_API_TOKEN`. No laptop deploys, no personal credentials.
-- **Staging**: every deploy also serves at https://ant-supply-api.autonomi.workers.dev (note: `workers.dev` sits behind Cloudflare bot protection and may 403 some non-browser user agents; the production hostname is the contract).
+- **Staging**: every deploy also serves at https://api.autonomi.workers.dev (note: `workers.dev` sits behind Cloudflare bot protection and may 403 some non-browser user agents; the production hostname is the contract). CI also runs a public-contract test against `api.autonomi.com`, including automation user-agents, so a zone bot-protection change that would block machine clients fails the build.
 - **Production domain** (`api.autonomi.com`) is declared in `wrangler.jsonc` — enabling/changing it happens via a reviewed commit.
 
 ## Secrets

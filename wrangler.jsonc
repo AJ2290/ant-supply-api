@@ -2,13 +2,15 @@
 // The dashboard is read-only by convention: anything changed there is
 // invisible to git and overwritten by the next deploy.
 {
-  "name": "ant-supply-api",
+  // Named "api" because the custom domain binds to the Worker by name
+  // and api.autonomi.com is the long-term identity of this host
+  "name": "api",
   "main": "worker/index.js",
   // Autonomi account (owns the autonomi.com zone)
   "account_id": "be82e7c0b8539ee42440087b8f2c58f5",
   "compatibility_date": "2026-08-26",
 
-  // Staging URL: https://ant-supply-api.autonomi.workers.dev
+  // Staging URL: https://api.autonomi.workers.dev
   "workers_dev": true,
 
   "observability": {
