@@ -15,11 +15,11 @@
 
   "observability": {
     "enabled": true
-  }
+  },
 
-  // Production domain — enabled at cutover via a reviewed commit, never
-  // from the dashboard. Claims api.autonomi.com away from the Vercel CNAME.
-  // "routes": [
-  //   { "pattern": "api.autonomi.com", "custom_domain": true }
-  // ]
+  // Production domain — enabled by a reviewed commit, never from the
+  // dashboard. Claims api.autonomi.com away from the former Vercel CNAME.
+  "routes": [
+    { "pattern": "api.autonomi.com", "custom_domain": true }
+  ]
 }
