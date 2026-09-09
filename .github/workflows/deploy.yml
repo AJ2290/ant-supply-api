@@ -35,9 +35,19 @@ jobs:
           BASE="https://api.autonomi.com"
           # Bare curl and an automation user-agent: catches zone bot
           # protection being switched back on, which would 403 machine
-          # clients and CMC/CoinGecko would go quiet
-          total=$(curl -sf --max-time 20 "$BASE/api/total-supply") || { echo "bare curl blocked or failed"; exit 1; }
-          [ "$total" = "1200000000" ] || { echo "total-supply wrong: $total"; exit 1; }
+          # clients and CMC/CoinGecko would go quiet.
+          # Retries for up to ~3 minutes: right after a custom-domain claim
+          # the hostname can take a short while to answer from the Worker
+          # (Cloudflare issues it a certificate).
+          total=""
+          for i in $(seq 1 12); do
+            total=$(curl -sf --max-time 20 "$BASE/api/total-supply") && [ "$total" = "1200000000" ] && break
+            echo "attempt $i: not ready yet (got '$total')"; sleep 15
+          done
+          [ "$total" = "1200000000" ] || { echo "bare curl blocked or total-supply wrong: $total"; exit 1; }
           circ=$(curl -sf --max-time 30 -A "Python-urllib/3.12" "$BASE/api/circulating-supply") || { echo "Python-urllib UA blocked"; exit 1; }
           echo "$circ" | grep -qE '^[0-9]+$' || { echo "circulating-supply not a bare integer: $circ"; exit 1; }
+          # The Worker must be the origin: a cf-ray header proves Cloudflare
+          # served it, so a DNS record quietly pointing elsewhere fails the build
+          curl -s -o /dev/null -D - --max-time 20 "$BASE/api/total-supply" | grep -qi '^cf-ray:' || { echo "api.autonomi.com is not being served by the Worker"; exit 1; }
           echo "public contract OK: circulating=$circ"

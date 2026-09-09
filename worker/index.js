@@ -241,8 +241,7 @@ async function handleIndex(request) {
       service: "ANT Supply API",
       description:
         "Public supply data for the Autonomi Network Token (ANT) on Arbitrum One",
-      // GitHub redirects this to the repo's current name after any rename
-      source: "https://github.com/WithAutonomi/ant-supply-api",
+      source: "https://github.com/WithAutonomi/api",
       endpoints: [
         {
           path: "/api/health",
