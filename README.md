@@ -63,6 +63,24 @@ None. The Worker reads public RPC endpoints and holds no credentials. If a secre
 npx wrangler dev          # local simulator on http://localhost:8787
 ```
 
+## Testing
+
+With Node **22.22.3**, run `node --test tests/*.test.mjs`, then
+`python3 scripts/adr-governance.py` for decision-record validation. No dependency
+installation is needed for these checks. The tests import the unchanged Worker
+with controlled RPC, Cache API and clock fixtures; they make no real network
+calls. Fixtures are synthetic, never deployment data. Node's typeless-module
+warning is expected with the existing package configuration.
+
+These are preservation tests, not new supply policy: they record current method,
+rounding, provider and stale-cache behavior, including malformed-reply quirks and
+cache failures that can still return 500. They exercise the Worker directly, not
+Cloudflare's HTTP transport (which may strip a HEAD response body).
+`.github/workflows/ci.yml` runs the checks read-only for the pricing feature
+branch and pull requests, with no deployment or cloud credentials. The existing
+deployment workflow runs the same checks before deploying and retains its live
+post-deployment probes; offline tests do not replace those probes.
+
 ## Legacy
 
 `/api/*.js` are the original Vercel serverless functions this Worker replaced (identical behaviour, verified byte-for-byte at migration). They are kept for reference until the Vercel project is retired, then removed.
