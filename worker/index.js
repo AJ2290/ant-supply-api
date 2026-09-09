@@ -3,7 +3,20 @@
 // formats: total-supply and circulating-supply are plain-text numbers
 // (what CoinMarketCap/CoinGecko poll), health and supply are JSON.
 
-const ARBITRUM_RPC = "https://arb1.arbitrum.io/rpc";
+// Public Arbitrum One RPC endpoints, tried in order. Public RPCs rate-limit
+// by source IP, and a Worker shares Cloudflare's egress IPs with many other
+// tenants, so any single endpoint can answer "Too Many Requests" at any
+// moment (seen at cutover, 9 Sep 2026). The endpoint that last worked is
+// tried first on the next call.
+const ARBITRUM_RPCS = [
+  "https://arb1.arbitrum.io/rpc",
+  "https://arbitrum-one-rpc.publicnode.com",
+  "https://arbitrum.drpc.org",
+  "https://arbitrum-one.public.blastapi.io",
+  "https://1rpc.io/arb",
+];
+const RPC_TIMEOUT_MS = 8000;
+let preferredRpc = 0;
 
 const ANT_CONTRACT = "0xa78d8321B20c4Ef90eCd72f2588AA985A4BDb684";
 const TOTAL_SUPPLY = BigInt("1200000000000000000000000000"); // 1.2B with 18 decimals
@@ -76,34 +89,40 @@ async function getStale(key) {
   }
 }
 
+// JSON-RPC call with endpoint fallback. Any HTTP error, JSON-RPC error,
+// malformed reply, network failure or timeout moves on to the next endpoint;
+// only when every endpoint has failed does this throw.
+async function rpcCall(method, params, endpoints = ARBITRUM_RPCS) {
+  const errors = [];
+  for (let i = 0; i < endpoints.length; i++) {
+    const idx = (preferredRpc + i) % endpoints.length;
+    const url = endpoints[idx];
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jsonrpc: "2.0", method, params, id: 1 }),
+        signal: AbortSignal.timeout(RPC_TIMEOUT_MS),
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const result = await response.json();
+      if (result.error) throw new Error(result.error.message);
+      if (typeof result.result !== "string") throw new Error("malformed result");
+      preferredRpc = idx;
+      return result.result;
+    } catch (e) {
+      errors.push(`${url}: ${e.message}`);
+    }
+  }
+  throw new Error(`RPC error: all endpoints failed (${errors.join("; ")})`);
+}
+
 // Query wallet balance using eth_call
 async function getBalance(walletAddress) {
   // ERC20 balanceOf(address) function signature
   const data = "0x70a08231000000000000000000000000" + walletAddress.slice(2).toLowerCase();
-
-  const response = await fetch(ARBITRUM_RPC, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      jsonrpc: "2.0",
-      method: "eth_call",
-      params: [
-        {
-          to: ANT_CONTRACT,
-          data: data,
-        },
-        "latest",
-      ],
-      id: 1,
-    }),
-  });
-
-  const result = await response.json();
-  if (result.error) {
-    throw new Error(`RPC error: ${result.error.message}`);
-  }
-
-  return BigInt(result.result);
+  const hex = await rpcCall("eth_call", [{ to: ANT_CONTRACT, data }, "latest"]);
+  return BigInt(hex);
 }
 
 // Format BigInt to human-readable number (without decimals)

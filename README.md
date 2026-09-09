@@ -20,7 +20,7 @@ The two plain-text endpoints return a bare number with no JSON wrapper — this 
 
 ### Circulating supply definition
 
-`circulating = 1,200,000,000 − Σ(excluded wallet balances)`, read live from the ANT contract on Arbitrum One (`0xa78d8321B20c4Ef90eCd72f2588AA985A4BDb684`) via the public RPC, cached for 60 seconds. Excluded wallets:
+`circulating = 1,200,000,000 − Σ(excluded wallet balances)`, read live from the ANT contract on Arbitrum One (`0xa78d8321B20c4Ef90eCd72f2588AA985A4BDb684`) via public RPC endpoints (a fallback list in `worker/index.js`, tried in order because public RPCs rate-limit Cloudflare's shared egress IPs), cached for 60 seconds. Excluded wallets:
 
 1. **Network Emissions** — `0xdA4f3aF146f86850DE8e0D6FaE6EEe051Ad0AA44`
 2. **MAID Airdrop Wallet** — `0x675D39cdCEA31ba8313565b03D684A3bbe183a1a`
@@ -55,7 +55,7 @@ Changing this list is a change to the published circulating supply figure — tr
 
 ## Secrets
 
-None. The Worker reads a public RPC endpoint and holds no credentials. If a secret is ever added, set it via `wrangler secret put` / Actions secrets and document its **name only** here.
+None. The Worker reads public RPC endpoints and holds no credentials. If a secret is ever added, set it via `wrangler secret put` / Actions secrets and document its **name only** here.
 
 ## Local development
 
