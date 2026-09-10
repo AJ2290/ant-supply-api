@@ -52,6 +52,15 @@ test('pricing returns exact synthetic bytes and headers with one fixed KV stream
   offline(t);
   const fixture = publication();
   const kv = storage(fixture);
+  kv.env.PRICING_KV.getWithMetadata = async (...args) => {
+    kv.calls.push(args);
+    return { metadata: structuredClone(fixture.metadata), value: new ReadableStream({ start(controller) {
+      // Exercise assembly beyond offset zero without changing the expected bytes.
+      controller.enqueue(fixture.bytes.subarray(0, 17));
+      controller.enqueue(fixture.bytes.subarray(17));
+      controller.close();
+    } }) };
+  };
   await success(await request(kv.env), fixture);
   // Conditional headers/query parameters do not select a key, version or 304.
   await success(await request(kv.env, 'GET', '/api/pricing///?key=other&provider=other', {

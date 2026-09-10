@@ -159,9 +159,10 @@ The shared model supplies fixed example-summary validation, not request-time
 monetary calculations.
 
 The existing `node --test tests/*.test.mjs` command picks up the new pricing,
-discovery and source-origin suites alongside all 139 unchanged preservation
-cases. `tests/pricing-fixtures.mjs` contains **invented test-only** rates, dates
-and identities; it is never imported by deployed code. Tests use explicit KV
+discovery and source-origin suites alongside all 139 retained preservation
+cases, with two owner-approved root-name assertion changes.
+`tests/pricing-fixtures.mjs` contains **invented test-only** rates, dates and
+identities; it is never imported by deployed code. Tests use explicit KV
 streams, fake clocks and controlled provider/cache fixtures, without cloud
 credentials, a sibling repository, collection or publication. CI commands,
 deployment workflow, package behavior and legacy Vercel files are unchanged.
