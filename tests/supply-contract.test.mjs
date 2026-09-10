@@ -96,7 +96,7 @@ for (const method of ['GET', 'OPTIONS', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE'
       ...JSON_HEADERS, 'cache-control': 'public, max-age=3600',
     });
     const data = await response.json();
-    assert.equal(data.service, 'ANT Supply API');
+    assert.equal(data.service, 'Autonomi API');
     assert.equal(data.source, 'https://github.com/WithAutonomi/api');
     assert.equal(typeof data.description, 'string');
     assert.ok(data.description.length > 0);
@@ -145,7 +145,7 @@ test('trailing slashes and query strings normalize without redirecting', async t
   // Absolute root URL avoids treating // as a network-path URL reference.
   const root = await h.request(`${ORIGIN}////?probe=1`);
   assert.equal(root.status, 200);
-  assert.equal((await root.json()).service, 'ANT Supply API');
+  assert.equal((await root.json()).service, 'Autonomi API');
   await assertJsonReply(await h.request('/api/health///?probe=1'), {
     headers: JSON_HEADERS, body: { status: 'healthy', service: 'ANT Supply API', timestamp: TIME },
   });
